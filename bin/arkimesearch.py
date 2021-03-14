@@ -23,6 +23,10 @@ class ArkimeSearchCommand(GeneratingCommand):
                     record[prefix + '.' + key] = value
         return record
      
+    def timestamp(self, time):
+        seconds = int(time) / 1000
+        milliseconds = int(time) % 1000
+        return seconds + milliseconds / 1000
 
     def generate(self):
         es = Elasticsearch(['http://elastic1-1:9200'])
@@ -31,9 +35,11 @@ class ArkimeSearchCommand(GeneratingCommand):
 
         for result in results['hits']['hits']:
             record = {}
-            record['arkime_index'] = result['_index']
-            record['_raw'] = 'Arkmime Record in index %s' % result['_index']
             record = self.handle_results(result, self.prefix, record)
+
+            record['_time'] = self.timestamp(record['arkime._source.firstPacket'])
+            record['_raw'] = str(record)
+
             yield record
  
 dispatch(ArkimeSearchCommand, sys.argv, sys.stdin, sys.stdout, __name__)
