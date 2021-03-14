@@ -2,6 +2,7 @@ from elasticsearch import Elasticsearch
 import os,sys
 import time
 import re
+import shlex
 
 from splunklib.searchcommands import dispatch, GeneratingCommand, Configuration, Option, validators
 from splunk.clilib import cli_common as cli
@@ -53,15 +54,14 @@ class ArkimeSearchCommand(GeneratingCommand):
         # TODO: A lot more error checking
         if self.query:
             self.query = self.query.replace('=', ' = ')
-            
-            querylist = self.query.split()
+            querylist = shlex.split(self.query)
             
             record_filter = dict()
             record_filter['bool'] = dict()
             record_filter['bool']['must'] = list()
             
             for x in range(0, len(querylist), 3):
-                values = querylist[x + 2].split(',')
+                values = querylist[x + 2].split(';')
                 
                 field_filter = dict()
                 field_filter['bool'] = dict()
