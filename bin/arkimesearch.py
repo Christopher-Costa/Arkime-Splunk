@@ -9,6 +9,8 @@ from splunk.clilib import cli_common as cli
 @Configuration()
 class ArkimeSearchCommand(GeneratingCommand):
 
+    query = Option(require=False)
+
     # TODO: Proper configuration settings
     prefix = 'arkime'
     limit = 1000
@@ -47,6 +49,33 @@ class ArkimeSearchCommand(GeneratingCommand):
         time_filter['range']['lastPacket']['lte'] = self.endTime * 1000
 
         query['query']['bool']['filter'].append(time_filter)
+
+        # TODO: A lot more error checking
+        if self.query:
+            self.query = self.query.replace('=', ' = ')
+            
+            querylist = self.query.split()
+            
+            record_filter = dict()
+            record_filter['bool'] = dict()
+            record_filter['bool']['must'] = list()
+            
+            for x in range(0, len(querylist), 3):
+                values = querylist[x + 2].split(',')
+                
+                field_filter = dict()
+                field_filter['bool'] = dict()
+                field_filter['bool']['should'] = list()
+            
+                for value in values:
+                    value_filter = dict()
+                    value_filter['term'] = dict()
+                    value_filter['term'][querylist[x]] = value
+                    field_filter['bool']['should'].append(value_filter)
+               
+                record_filter['bool']['must'].append(field_filter)
+            query['query']['bool']['filter'].append(record_filter)
+
 
         return query
 
