@@ -1,9 +1,10 @@
 from elasticsearch import Elasticsearch
 import os,sys
 import time
+import re
 
 from splunklib.searchcommands import dispatch, GeneratingCommand, Configuration, Option, validators
-from splunklib.six.moves import range
+from splunk.clilib import cli_common as cli
 
 @Configuration()
 class ArkimeSearchCommand(GeneratingCommand):
@@ -11,8 +12,6 @@ class ArkimeSearchCommand(GeneratingCommand):
     # TODO: Proper configuration settings
     prefix = 'arkime'
     limit = 1000
-    elastic_nodes = [['elastic1-1', 'elastic1-2'],
-                     ['elastic2-1', 'elastic2-2']]
 
     def handle_results(self, result, prefix, record):
         if isinstance(result, dict):
@@ -51,7 +50,21 @@ class ArkimeSearchCommand(GeneratingCommand):
 
         return query
 
+    def read_config(self):
+
+        cfg = cli.getMergedConf('arkime')
+
+        self.elastic_nodes = dict()
+        for stanza in cfg.keys():
+            if re.match("^elastic:[^:]+$", stanza):
+                elastic, site = stanza.split(':', 1)
+                self.elastic_nodes[site] = list()
+                for server in cfg[stanza]:
+                    if re.match("^server\d+$", server):
+                        self.elastic_nodes[site].append( cfg[stanza][server] )
+
     def generate(self):
+        
 
         try:
             self.startTime = self.search_results_info.startTime
@@ -64,9 +77,12 @@ class ArkimeSearchCommand(GeneratingCommand):
             self.endTime = time.time() 
 
 
+        #self.elastic_nodes = self.read_config()
+        self.read_config()
+
         # TODO: multithreading?
-        for nodelist in self.elastic_nodes:
-          es = Elasticsearch(nodelist, scheme="http", port="9200")
+        for cluster in self.elastic_nodes:
+          es = Elasticsearch(self.elastic_nodes[cluster])
 
           results = es.search(index="sessions*", body=self.search_query())
 
@@ -74,6 +90,8 @@ class ArkimeSearchCommand(GeneratingCommand):
               record = {}
               record = self.handle_results(result, self.prefix, record)
 
+              record['host'] = cluster
+              record['conf'] = self.elastic_nodes
               record['_time'] = self.timestamp(record['arkime._source.firstPacket'])
               record['_raw'] = str(record)
 
