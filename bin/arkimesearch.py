@@ -30,18 +30,50 @@ class ArkimeSearchCommand(GeneratingCommand):
     def timestamp(self, time):
         return time / 1000
 
+    def search_query(self):
+
+        query = dict()
+        query['from'] = 0
+        query['size'] = self.limit 
+        
+        query['query'] = dict()
+       
+        query['query']['bool'] = dict()
+        query['query']['bool']['filter'] = list()
+
+        time_filter = dict()
+        time_filter['range'] = dict()
+        time_filter['range']['lastPacket'] = dict()
+        time_filter['range']['lastPacket']['gte'] = self.startTime * 1000
+        time_filter['range']['lastPacket']['lte'] = self.endTime * 1000
+
+        query['query']['bool']['filter'].append(time_filter)
+
+        return query
+
     def generate(self):
+
+        try:
+            self.startTime = self.search_results_info.startTime
+        except AttributeError:
+            self.startTime = 0 
+
+        try:
+            self.endTime = self.search_results_info.endTime
+        except AttributeError:
+            self.endTime = time.time() 
+
+
         # TODO: multithreading?
         for nodelist in self.elastic_nodes:
           es = Elasticsearch(nodelist, scheme="http", port="9200")
 
-          results = es.search(index="sessions*", body={"from": 0, "size": self.limit})
+          results = es.search(index="sessions*", body=self.search_query())
 
           for result in results['hits']['hits']:
               record = {}
               record = self.handle_results(result, self.prefix, record)
 
-              record['host'] = nodelist[0]
               record['_time'] = self.timestamp(record['arkime._source.firstPacket'])
               record['_raw'] = str(record)
 
