@@ -91,7 +91,6 @@ class ArkimeSearchCommand(GeneratingCommand):
               record = self.handle_results(result, self.prefix, record)
 
               record['host'] = cluster
-              record['conf'] = self.elastic_nodes
               record['_time'] = self.timestamp(record['arkime._source.firstPacket'])
               record['_raw'] = str(record)
 
